@@ -1,4 +1,5 @@
 import { WebSocket, WebSocketServer } from "ws";
+import { wsArcjet } from "../arcject.js";
 
 function sendJSON(socket, payload){
     if(socket.readyState !== WebSocket.OPEN) return;
@@ -30,8 +31,55 @@ function broadcast(wss, payload){
 //     return {broadcastMatchCreated}
 // }
 
+function rejectUpgrade(socket, statusCode, statusText, message) {
+    if (socket.destroyed) return;
+
+    const body = message;
+    socket.write(
+        `HTTP/1.1 ${statusCode} ${statusText}\r\n` +
+        "Connection: close\r\n" +
+        "Content-Type: text/plain; charset=utf-8\r\n" +
+        `Content-Length: ${Buffer.byteLength(body)}\r\n` +
+        "\r\n" +
+        body
+    );
+    socket.destroy();
+}
+
 export function attachWebSocketServer(server) {
-    const wss = new WebSocketServer({server, path : "/ws", maxPayload: 1024 * 1024});
+    // noServer is required because the upgrade handler below is responsible
+    // for validating the request before the WebSocket handshake.
+    const wss = new WebSocketServer({noServer: true, path : "/ws", maxPayload: 1024 * 1024});
+
+    server.on('upgrade', async (req, socket, head) => {
+        if (!wss.shouldHandle(req)) {
+            rejectUpgrade(socket, 404, 'Not Found', 'Not Found');
+            return;
+        }
+
+        if(wsArcjet){
+            try {
+                const decision = await wsArcjet.protect(req);
+
+                if(decision.isDenied()){
+                    if(decision.reason.isRateLimit()){
+                        rejectUpgrade(socket, 429, 'Too Many Requests', 'Rate limit exceeded');
+                    } else {
+                        rejectUpgrade(socket, 403, 'Forbidden', 'Access denied');
+                    }
+                    return;
+                }
+            } catch (e) {
+                console.error('WS upgrade protection error', e);
+                rejectUpgrade(socket, 503, 'Service Unavailable', 'Service unavailable');
+                return;
+            }
+        }
+
+        wss.handleUpgrade(req, socket, head, (ws) => {
+            wss.emit('connection', ws, req);
+        });
+    });
 
     wss.on('connection', (socket) => {
         socket.isAlive = true;
