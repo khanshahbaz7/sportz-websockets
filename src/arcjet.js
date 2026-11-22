@@ -25,12 +25,17 @@ export const wsArcjet = arcjetKey ?
 
 export function securityMiddleware(){
     return async (req, res, next) => {
-        if(!httpArcjet) return next;
+        if(!httpArcjet) return next();
 
         try {
             const decision = await httpArcjet.protect(req);
 
             if(decision.isDenied()){
+                console.warn(
+                    `Arcjet denied request: ${decision.reason.type ?? "UNKNOWN"}`,
+                    decision.reason.isBot() ? `denied=[${decision.reason.denied.join(", ")}]` : ""
+                );
+
                 if(decision.reason.isRateLimit()){
                     return res.status(429).json({error : "Too many requests."})
                 }
@@ -38,7 +43,7 @@ export function securityMiddleware(){
                 return res.status(403).json({error : "Forbidden"})
             }
         } catch (error) {
-            console.error('Arcjet middleware error', e);
+            console.error('Arcjet middleware error', error);
             return res.status(503).json({error : "Service Unavailable."})
         }
 
