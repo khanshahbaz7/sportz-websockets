@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1795018884903,
+      "tag": "0000_remarkable_betty_ross",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795265348556,
+      "tag": "0001_rename_commentary_minutes",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795411225157,
+      "tag": "0002_nosy_wolverine",
+      "breakpoints": true
+    }
+  ]
+}
